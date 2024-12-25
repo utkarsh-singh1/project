@@ -2,86 +2,83 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
+	"mime"
 	"net/http"
 	"time"
 
-	"github.com/gorilla/mux"
+	taskforce "github.com/utkarsh-singh1/project/go/restfuljsonapi/internal"
 )
 
+type taskServer struct {
 
-type Route struct {
+	store *taskforce.TaskStore
 
-	Name , Method, Pattern string
-	HandlerFunc http.HandlerFunc 
 }
 
-type Routes []Route
+func newServer() *taskServer {
 
-var routes = Routes{
+	store := taskforce.New()
 
-	Route{
-		"Index", "GET", "/", Index,
-	},
+	taskserver := taskServer{store: store,}
 
-	Route{
-		"TodoIndex", "GET", "/todos", TodoIndex,
-	},
+	return &taskserver
 	
-	Route{
-		"TodoShow", "GET", "/todos/{todoId}", TodoShow,
-	},
 }
 
-func NewRouter() *mux.Router{
+func (ts *taskServer) createTaskHandler(w http.ResponseWriter, req *http.Request ){
 
-	router := mux.NewRouter().StrictSlash(true)
-
-	for _ , route := range routes {
-
-		router.Methods(route.Method).Path(route.Pattern).Name(route.Name).Handler(route.HandlerFunc)
+	type RequestTask struct {
+		Text string `json:"text"`
+		Due time.Time `json:"due"`
+		Tag []string `json:"tag"`
 	}
 
-	return router
+	type ResponseID struct {
+		Id int `json:"id"`
+	}
+
+
+	// Request Section of code
+
+	// This section make sure the request body contains only Json as the input fro the user side
+	contentType := req.Header.Get("Content-type")
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if mediaType != "application/json" {
+		http.Error(w, "expected Content-Type to be application/json", http.StatusUnsupportedMediaType)
+	}
+
+	
+	dec := json.NewDecoder(req.Body)
+	dec.DisallowUnknownFields()
+
+	var rt RequestTask
+	if err := dec.Decode(&rt) ; err != nil {
+
+		http.Error(w,err.Error() , http.StatusBadRequest)
+		return
+	}
+
+	//Response Section of Code
+
+	id := ts.store.CreateTask(rt.Text, rt.Tag, rt.Due)
+	js ,err := json.Marshal(ResponseID{Id: id})
+	if err != nil{
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+	
 }
-
-type Todo struct {
-
-	Name string `json:"name"`
-	Completed bool `json:"completed"`
-	Due time.Time `json:"due"`
-}
-
-type Todos []Todo
 
 func main() {
 
-	router := NewRouter()
-		
-	log.Fatal(http.ListenAndServe(":8080", router))
-}
+	
 
-
-func Index(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintln(w, "Welcome !")
-}
-
-func TodoIndex(w http.ResponseWriter, req *http.Request) {
-
-	todos := Todos{
-		Todo{Name: "Task1"},
-		Todo{Name: "Task2"},
-	}
-
-	if err := json.NewEncoder(w).Encode(todos); err != nil {
-		panic(err)
-	}
-}
-
-func TodoShow(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-
-	todoId := vars["todoId"]
-	fmt.Fprintln(w , todoId)
 }
