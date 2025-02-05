@@ -1,11 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/utkarsh-singh1/project/go/EventAPI/models"
-	//"github.com/utkarsh-singh1/project/go/EventAPI/models"
 )
 
 func main() {
@@ -32,6 +32,14 @@ func createNewEvent(c *gin.Context) {
 
 	var event models.Event
 
-	c.ShouldBindJSON(&event)
+	err := c.ShouldBindJSON(&event)
 
+	if err != nil {
+		c.JSON(http.StatusBadRequest,fmt.Sprintln("Wrong Request Sent By User"))
+		return
+	}
+	
+	event.ID = 1
+
+	c.JSON(http.StatusCreated, fmt.Sprintf("The current event is created and your registered event info is %v",event))
 }
