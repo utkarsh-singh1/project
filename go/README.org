@@ -1,6 +1,0 @@
-
-#+title: Projects
-#+author: Utkarsh Singh
-
-
-Collection of projects on different use cases using different technologies and languages.
